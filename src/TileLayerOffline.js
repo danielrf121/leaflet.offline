@@ -38,19 +38,13 @@ const TileLayerOffline = L.TileLayer.extend(
      * @return {Promise<string>} objecturl
      */
     setDataUrl(coords) {
-      return new Promise((resolve, reject) => {
-        getTile(this._getStorageKey(coords))
-          .then((data) => {
-            if (data && typeof data === 'object') {
-              resolve(URL.createObjectURL(data));
-            } else {
-              reject();
-            }
-          })
-          .catch((e) => {
-            reject(e);
-          });
-      });
+      return getTile(this._getStorageKey(coords))
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            return URL.createObjectURL(data);
+          }
+          throw new Error('tile not found in storage');
+        });
     },
     /**
      * get key to use for storage
@@ -84,10 +78,10 @@ const TileLayerOffline = L.TileLayer.extend(
 );
 
 /**
- * Tiles removed event
+ * Control finished calculating storage size
  * @event storagesize
  * @memberof TileLayerOffline
- * @instance
+ * @type {ControlStatus}
  */
 
 /**
@@ -133,7 +127,17 @@ const TileLayerOffline = L.TileLayer.extend(
  */
 
 /**
- * @function L.tileLayer.offline
+ * Leaflet namespace.
+ * @namespace L
+ */
+/**
+ * Tilelayer namespace.
+ * @namespace L.tileLayer
+ */
+
+/**
+ * @function offline
+ * @memberof L.tileLayer
  * @param  {string} url     [description]
  * @param  {object} options {@link http://leafletjs.com/reference-1.2.0.html#tilelayer}
  * @return {TileLayerOffline}      an instance of TileLayerOffline

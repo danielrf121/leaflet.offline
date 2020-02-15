@@ -1,7 +1,7 @@
 # leaflet.offline version 2.x
 
 [![npm version](https://badge.fury.io/js/leaflet.offline.svg)](https://badge.fury.io/js/leaflet.offline)
-[![Build Status](https://travis-ci.org/allartk/leaflet.offline.svg?branch=travis)](https://travis-ci.org/allartk/leaflet.offline)
+[![Build Status](https://travis-ci.org/allartk/leaflet.offline.png?branch=master)](https://travis-ci.org/allartk/leaflet.offline)
 
 Just a modern and slim library to store tiles offline.
 
@@ -34,7 +34,7 @@ The package and it's dependencies can also be downloaded into
 your existing project with [npm](http://npmjs.com):
 
 ```
-npm install leaflet.offline
+npm install leaflet.offline@next
 ```
 
 In your script add:
