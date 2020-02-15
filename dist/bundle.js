@@ -6,6 +6,10 @@
 
   L = L && L.hasOwnProperty('default') ? L['default'] : L;
 
+  /**
+   * @module TileManager
+   */
+
   var tileStoreName = 'tileStore';
   var urlTemplateIndex = 'urlTemplate';
 
@@ -55,7 +59,7 @@
    * @param {string} tileUrl
    * @return {Promise<blob>}
    */
-  function downloadTile(tileUrl) {
+  async function downloadTile(tileUrl) {
     return fetch(tileUrl).then(function (response) {
       if (!response.ok) {
         throw new Error(("Request failed with status " + (response.statusText)));
@@ -120,58 +124,52 @@
   }
   /**
    * Get a geojson of tiles from one resource
-   * TODO, per zoomlevel?
    *
    * @param {object} layer
+   * @param {tileInfo[]} tiles
    *
    * @return {object} geojson
    */
-  function getStoredTilesAsJson(layer) {
+  function getStoredTilesAsJson(layer, tiles) {
     var featureCollection = {
       type: 'FeatureCollection',
       features: [],
     };
-    return getStorageInfo(layer._url).then(function (results) {
-      for (var i = 0; i < results.length; i += 1) {
-        if (results[i].urlTemplate !== layer._url) {
-          // eslint-disable-next-line no-continue
-          continue;
-        }
-        var topLeftPoint = new L.Point(
-          results[i].x * layer.getTileSize().x,
-          results[i].y * layer.getTileSize().y
-        );
-        var bottomRightPoint = new L.Point(
-          topLeftPoint.x + layer.getTileSize().x,
-          topLeftPoint.y + layer.getTileSize().y
-        );
+    for (var i = 0; i < tiles.length; i += 1) {
+      var topLeftPoint = new L.Point(
+        tiles[i].x * layer.getTileSize().x,
+        tiles[i].y * layer.getTileSize().y
+      );
+      var bottomRightPoint = new L.Point(
+        topLeftPoint.x + layer.getTileSize().x,
+        topLeftPoint.y + layer.getTileSize().y
+      );
 
-        var topLeftlatlng = L.CRS.EPSG3857.pointToLatLng(
-          topLeftPoint,
-          results[i].z
-        );
-        var botRightlatlng = L.CRS.EPSG3857.pointToLatLng(
-          bottomRightPoint,
-          results[i].z
-        );
-        featureCollection.features.push({
-          type: 'Feature',
-          properties: results[i],
-          geometry: {
-            type: 'Polygon',
-            coordinates: [
-              [
-                [topLeftlatlng.lng, topLeftlatlng.lat],
-                [botRightlatlng.lng, topLeftlatlng.lat],
-                [botRightlatlng.lng, botRightlatlng.lat],
-                [topLeftlatlng.lng, botRightlatlng.lat],
-                [topLeftlatlng.lng, topLeftlatlng.lat] ] ],
-          },
-        });
-      }
+      var topLeftlatlng = L.CRS.EPSG3857.pointToLatLng(
+        topLeftPoint,
+        tiles[i].z
+      );
+      var botRightlatlng = L.CRS.EPSG3857.pointToLatLng(
+        bottomRightPoint,
+        tiles[i].z
+      );
+      featureCollection.features.push({
+        type: 'Feature',
+        properties: tiles[i],
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [topLeftlatlng.lng, topLeftlatlng.lat],
+              [botRightlatlng.lng, topLeftlatlng.lat],
+              [botRightlatlng.lng, botRightlatlng.lat],
+              [topLeftlatlng.lng, botRightlatlng.lat],
+              [topLeftlatlng.lng, topLeftlatlng.lat] ] ],
+        },
+      });
+    }
 
-      return featureCollection;
-    });
+    return featureCollection;
   }
 
   /**
@@ -239,21 +237,13 @@
        * @return {Promise<string>} objecturl
        */
       setDataUrl: function setDataUrl(coords) {
-        var this$1 = this;
-
-        return new Promise(function (resolve, reject) {
-          getTile(this$1._getStorageKey(coords))
-            .then(function (data) {
-              if (data && typeof data === 'object') {
-                resolve(URL.createObjectURL(data));
-              } else {
-                reject();
-              }
-            })
-            .catch(function (e) {
-              reject(e);
-            });
-        });
+        return getTile(this._getStorageKey(coords))
+          .then(function (data) {
+            if (data && typeof data === 'object') {
+              return URL.createObjectURL(data);
+            }
+            throw new Error('tile not found in storage');
+          });
       },
       /**
        * get key to use for storage
@@ -285,10 +275,10 @@
   );
 
   /**
-   * Tiles removed event
+   * Control finished calculating storage size
    * @event storagesize
    * @memberof TileLayerOffline
-   * @instance
+   * @type {ControlStatus}
    */
 
   /**
@@ -334,7 +324,17 @@
    */
 
   /**
-   * @function L.tileLayer.offline
+   * Leaflet namespace.
+   * @namespace L
+   */
+  /**
+   * Tilelayer namespace.
+   * @namespace L.tileLayer
+   */
+
+  /**
+   * @function offline
+   * @memberof L.tileLayer
    * @param  {string} url     [description]
    * @param  {object} options {@link http://leafletjs.com/reference-1.2.0.html#tilelayer}
    * @return {TileLayerOffline}      an instance of TileLayerOffline
@@ -498,14 +498,15 @@
           tiles = tiles.concat(this._baseLayer.getTileUrls(bounds, zoomlevels[i]));
         }
         this._resetStatus(tiles);
-        var succescallback = function () {
+        var succescallback = async function () {
           this$1._baseLayer.fire('savestart', this$1.status);
-          var subdlength = this$1._baseLayer.getSimultaneous();
+          // const subdlength = this._baseLayer.getSimultaneous();
           // TODO!
           // storeTiles(tiles, subdlength);
-          for (var i = 0; i < subdlength; i += 1) {
-            this$1._loadTile();
-          }
+          // using the non-recursive async version for all tiles
+          await Promise.all(tiles.map(async function (tile) {
+            await this$1._loadTile(tile);
+          }));
         };
         if (this.options.confirm) {
           this.options.confirm(this.status, succescallback);
@@ -532,23 +533,20 @@
        * @private
        * @return {void}
        */
-      _loadTile: function _loadTile() {
+      // non-recursive async version of _loadTile
+      _loadTile: async function _loadTile(jtile) {
         var self = this;
-        var tile = self.status._tilesforSave.shift();
+        var tile = jtile;
         downloadTile(tile.url).then(function (blob) {
           self.status.lengthLoaded += 1;
           self._saveTile(tile, blob);
-          if (self.status._tilesforSave.length > 0) {
-            self._loadTile();
-            self._baseLayer.fire('loadtileend', self.status);
-          } else {
-            self._baseLayer.fire('loadtileend', self.status);
-            if (self.status.lengthLoaded === self.status.lengthToBeSaved) {
-              self._baseLayer.fire('loadend', self.status);
-            }
+          self._baseLayer.fire('loadtileend', self.status);
+          if (self.status.lengthLoaded === self.status.lengthToBeSaved) {
+            self._baseLayer.fire('loadend', self.status);
           }
         });
       },
+
       /**
        * [_saveTile description]
        * @private
@@ -561,7 +559,7 @@
        * @param  {blob} blob    [description]
        * @return {void}         [description]
        */
-      _saveTile: function _saveTile(tileInfo, blob) {
+      _saveTile: function _saveTile(tileInfo, blob) { // original is synchronous
         var self = this;
         saveTile(tileInfo, blob)
           .then(function () {
@@ -593,8 +591,21 @@
       },
     }
   );
+
+
   /**
-   * @function L.control.savetiles
+   * Leaflet namespace.
+   * @namespace L
+   */
+  /**
+   * Control namespace.
+   * @namespace L.control
+   */
+
+
+  /**
+   * @function savetiles
+   * @memberof L.control
    * @param  {object} baseLayer     {@link http://leafletjs.com/reference-1.2.0.html#tilelayer}
    * @property {Object} options
    * @property {string} [options.position] default topleft
