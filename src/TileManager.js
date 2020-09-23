@@ -12,7 +12,6 @@ import L from 'leaflet';
 import { openDB, deleteDB } from 'idb';
 
 const tileStoreName = 'tileStore';
-const groupStoreName = 'groupStore';
 const urlTemplateIndex = 'urlTemplate';
 
 const dbPromise = openDB('leaflet.offline', 2, {
@@ -97,7 +96,6 @@ export async function downloadTile(tileUrl) {
  * @return {Promise}
  */
 export async function saveTile(tileInfo, blob, timestamp, group) {
-  console.log(tileInfo, group);
   return (await dbPromise).put(tileStoreName, {
     timestamp,
     group,
