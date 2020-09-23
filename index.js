@@ -6,12 +6,11 @@ function showTileList() {
     const list = document.getElementById('tileinforows');
     list.innerHTML = '';
     for (let i = 0; i < r.length; i += 1) {
-      const createdAt = new Date(r[i].createdAt);
       list.insertAdjacentHTML(
         'beforeend',
         `<tr><td>${i}</td><td>${r[i].url}</td><td>${
           r[i].key
-        }</td><td>${createdAt.toDateString()}</td></tr>`,
+        }</td><td>${r[i].timestamp}</td></tr>`,
       );
     }
   });

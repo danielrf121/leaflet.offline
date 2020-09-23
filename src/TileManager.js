@@ -12,6 +12,7 @@ import L from 'leaflet';
 import { openDB, deleteDB } from 'idb';
 
 const tileStoreName = 'tileStore';
+const groupStoreName = 'groupStore';
 const urlTemplateIndex = 'urlTemplate';
 
 const dbPromise = openDB('leaflet.offline', 2, {
@@ -25,6 +26,7 @@ const dbPromise = openDB('leaflet.offline', 2, {
       });
       tileStore.createIndex(urlTemplateIndex, 'urlTemplate');
       tileStore.createIndex('z', 'z');
+      tileStore.createIndex('group', 'group');
     }
   },
 });
@@ -72,13 +74,15 @@ export async function getStorageInfo(urlTemplate) {
  * @return {Promise<blob>}
  */
 export async function downloadTile(tileUrl) {
-  return fetch(tileUrl).then((response) => {
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.statusText}`);
-    }
-    return response.blob();
-  });
+  return fetch(tileUrl)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.statusText}`);
+      }
+      return response.blob();
+    });
 }
+
 /**
  * TODO validate tileinfo props?
  *
@@ -86,12 +90,17 @@ export async function downloadTile(tileUrl) {
  * saveTile(tileInfo, blob).then(() => console.log(`saved tile from ${tileInfo.url}`))
  *
  * @param {tileInfo} tileInfo
- * @param {Blob} blob
+ * @param {blob} blob
+ * @param {timestamp} timestamp
+ * @param {string|number} groupId
  *
  * @return {Promise}
  */
-export async function saveTile(tileInfo, blob) {
+export async function saveTile(tileInfo, blob, timestamp, group) {
+  console.log(tileInfo, group);
   return (await dbPromise).put(tileStoreName, {
+    timestamp,
+    group,
     blob,
     ...tileInfo,
   });
@@ -111,6 +120,7 @@ export function getTileUrl(urlTemplate, data) {
     r: L.Browser.retina ? '@2x' : '',
   });
 }
+
 /**
  * @example
  * const p1 = L.point(10, 10)
@@ -120,20 +130,27 @@ export function getTileUrl(urlTemplate, data) {
  * @param {object} layer leaflet tilelayer
  * @param {object} bounds L.bounds
  * @param {number} zoom zoomlevel 0-19
+ * @param {number} group zoomlevel 0-19
  *
  * @return {Array.<tileInfo>}
  */
 export function getTileUrls(layer, bounds, zoom) {
   const tiles = [];
   const tileBounds = L.bounds(
-    bounds.min.divideBy(layer.getTileSize().x).floor(),
-    bounds.max.divideBy(layer.getTileSize().x).floor(),
+    bounds.min.divideBy(layer.getTileSize().x)
+      .floor(),
+    bounds.max.divideBy(layer.getTileSize().x)
+      .floor(),
   );
+
   for (let j = tileBounds.min.y; j <= tileBounds.max.y; j += 1) {
     for (let i = tileBounds.min.x; i <= tileBounds.max.x; i += 1) {
       const tilePoint = new L.Point(i, j);
       const data = {
-        ...layer.options, x: i, y: j, z: zoom,
+        ...layer.options,
+        x: i,
+        y: j,
+        z: zoom,
       };
       tiles.push({
         key: getTileUrl(layer._url, {
@@ -147,6 +164,7 @@ export function getTileUrls(layer, bounds, zoom) {
         z: zoom,
         x: i,
         y: j,
+        // group: '',
         urlTemplate: layer._url,
       });
     }
@@ -154,6 +172,7 @@ export function getTileUrls(layer, bounds, zoom) {
 
   return tiles;
 }
+
 /**
  * Get a geojson of tiles from one resource
  *
@@ -235,7 +254,8 @@ export async function removeTile(key) {
  * @returns {Promise<Blob>}
  */
 export async function getTile(key) {
-  return (await dbPromise).get(tileStoreName, key).then((result) => result.blob);
+  return (await dbPromise).get(tileStoreName, key)
+    .then((result) => result.blob);
 }
 
 /**

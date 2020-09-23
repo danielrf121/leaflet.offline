@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import MD5 from 'crypto-js/md5';
 import {
   truncate, getStorageLength, downloadTile, saveTile,
 } from './TileManager';
@@ -136,7 +137,8 @@ const ControlSaveTiles = L.Control.extend(
 
       return link;
     },
-    /**
+
+/**
      * starts processing tiles
      * @private
      * @return {void}
@@ -164,6 +166,7 @@ const ControlSaveTiles = L.Control.extend(
       }
 
       const latlngBounds = this.options.bounds || this._map.getBounds();
+      const groupId = (new Date).toISOString();
 
       for (let i = 0; i < zoomlevels.length; i += 1) {
         bounds = L.bounds(
@@ -180,7 +183,7 @@ const ControlSaveTiles = L.Control.extend(
             return Promise.resolve();
           }
           const tile = tiles.shift();
-          return this._loadTile(tile).then(loader);
+          return this._loadTile(tile, groupId).then(loader);
         };
         const parallel = Math.min(tiles.length, this.options.parallel);
         for (let i = 0; i < parallel; i += 1) {
@@ -212,12 +215,16 @@ const ControlSaveTiles = L.Control.extend(
      * @private
      * @return {void}
      */
-    _loadTile: async function _loadTile(jtile) {
+    _loadTile: async function _loadTile(jtile, groupId = '') {
       const self = this;
       const tile = jtile;
+      const today = new Date();
+      const date = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+      const time = `${today.getHours()}:${today.getMinutes()}:${today.getSeconds()}`;
+      const timestamp = `${date} ${time}`;
       downloadTile(tile.url).then((blob) => {
         self.status.lengthLoaded += 1;
-        self._saveTile(tile, blob);
+        self._saveTile(tile, blob, timestamp, groupId);
         self._baseLayer.fire('loadtileend', self.status);
         if (self.status.lengthLoaded === self.status.lengthToBeSaved) {
           self._baseLayer.fire('loadend', self.status);
@@ -233,12 +240,13 @@ const ControlSaveTiles = L.Control.extend(
      * @param {string} tileInfo.x
      * @param {string} tileInfo.y
      * @param {string} tileInfo.z
+     * @param {string} timestamp
      * @param  {blob} blob    [description]
      * @return {void}         [description]
      */
-    _saveTile(tileInfo, blob) { // original is synchronous
+    _saveTile(tileInfo, blob, timestamp, groupId) { // original is synchronous
       const self = this;
-      saveTile(tileInfo, blob)
+      saveTile(tileInfo, blob, timestamp, groupId)
         .then(() => {
           self.status.lengthSaved += 1;
           self._baseLayer.fire('savetileend', self.status);
