@@ -9,6 +9,7 @@ export default {
     globals: {
       leaflet: 'L',
       idb: 'idb',
+      bottleneck: 'bottleneck',
     },
   },
   plugins: [
@@ -19,5 +20,5 @@ export default {
       },
     }),
   ],
-  external: ['leaflet', 'idb'],
+  external: ['leaflet', 'idb', 'bottleneck'],
 };

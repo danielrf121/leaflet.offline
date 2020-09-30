@@ -1,7 +1,6 @@
 import L from 'leaflet';
-import MD5 from 'crypto-js/md5';
 import {
-  truncate, getStorageLength, downloadTile, saveTile,
+  truncate, getStorageLength, downloadTile, saveTile, downloadTileTimeout,
 } from './TileManager';
 
 /**
@@ -19,6 +18,7 @@ import {
 /**
  * Shows control on map to save tiles
  * @class ControlSaveTiles
+ * @class limiter
  *
  *
  * @property {ControlStatus} status
@@ -40,6 +40,9 @@ import {
  * rmText: '<i class="fa fa-trash" aria-hidden="true"  title="Remove tiles"></i>',
  * });
  */
+
+
+
 const ControlSaveTiles = L.Control.extend(
   /** @lends ControlSaveTiles */ {
     options: {
@@ -138,7 +141,7 @@ const ControlSaveTiles = L.Control.extend(
       return link;
     },
 
-/**
+    /**
      * starts processing tiles
      * @private
      * @return {void}
@@ -166,7 +169,7 @@ const ControlSaveTiles = L.Control.extend(
       }
 
       const latlngBounds = this.options.bounds || this._map.getBounds();
-      const groupId = (new Date).toISOString();
+      const groupId = (new Date()).toISOString();
 
       for (let i = 0; i < zoomlevels.length; i += 1) {
         bounds = L.bounds(
@@ -178,18 +181,43 @@ const ControlSaveTiles = L.Control.extend(
       this._resetStatus(tiles);
       const successCallback = async () => {
         this._baseLayer.fire('savestart', this.status);
-        const loader = () => {
-          if (tiles.length === 0) {
+        /* const loader = (tile) => {
+          /* if (tiles.length === 0) {
             return Promise.resolve();
           }
-          const tile = tiles.shift();
+          // const tile = tiles.shift();
+          console.log('was run');
           return this._loadTile(tile, groupId).then(loader);
         };
+      */
+        let promises = [];
+
+        try {
+          for (let i = 0; i < tiles.length; i++) {
+            //console.log(i);
+            const tile = tiles[i];
+            promises.push(this._loadTile(tile, groupId));
+            if (i > 0 && i % 200 === 0) {
+              const result = await Promise.all(promises);
+              //console.log(result);
+              promises = [];
+              await new Promise(resolve => setTimeout(resolve, 20));
+            }
+          }
+        } catch (e) {
+         // console.log(e);
+        }
+
+        /*
         const parallel = Math.min(tiles.length, this.options.parallel);
         for (let i = 0; i < parallel; i += 1) {
           loader();
         }
+
+ */
       };
+
+
       if (this.options.confirm) {
         this.options.confirm(this.status, successCallback);
       } else {
@@ -215,6 +243,7 @@ const ControlSaveTiles = L.Control.extend(
      * @private
      * @return {void}
      */
+
     _loadTile: async function _loadTile(jtile, groupId = '') {
       const self = this;
       const tile = jtile;
@@ -222,14 +251,26 @@ const ControlSaveTiles = L.Control.extend(
       const date = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
       const time = `${today.getHours()}:${today.getMinutes()}:${today.getSeconds()}`;
       const timestamp = `${date} ${time}`;
-      downloadTile(tile.url).then((blob) => {
+      try {
+        const blob = await downloadTile(tile.url);
         self.status.lengthLoaded += 1;
-        self._saveTile(tile, blob, timestamp, groupId);
+        await self._saveTile(tile, blob, timestamp, groupId);
         self._baseLayer.fire('loadtileend', self.status);
         if (self.status.lengthLoaded === self.status.lengthToBeSaved) {
           self._baseLayer.fire('loadend', self.status);
         }
-      });
+      } catch (e) {
+
+        downloadTile(tile.url).then((blob) => {
+          self.status.lengthLoaded += 1;
+          self._saveTile(tile, blob, timestamp, groupId);
+          self._baseLayer.fire('loadtileend', self.status);
+          if (self.status.lengthLoaded === self.status.lengthToBeSaved) {
+            self._baseLayer.fire('loadend', self.status);
+          }
+        });
+
+      }
     },
 
     /**
@@ -244,20 +285,20 @@ const ControlSaveTiles = L.Control.extend(
      * @param  {blob} blob    [description]
      * @return {void}         [description]
      */
-    _saveTile(tileInfo, blob, timestamp, groupId) { // original is synchronous
+    async _saveTile(tileInfo, blob, timestamp, groupId) { // original is synchronous
       const self = this;
-      saveTile(tileInfo, blob, timestamp, groupId)
-        .then(() => {
-          self.status.lengthSaved += 1;
-          self._baseLayer.fire('savetileend', self.status);
-          if (self.status.lengthSaved === self.status.lengthToBeSaved) {
-            self._baseLayer.fire('saveend', self.status);
-            self.setStorageSize();
-          }
-        })
-        .catch((err) => {
-          throw new Error(err);
-        });
+      try {
+        await saveTile(tileInfo, blob, timestamp, groupId);
+        //console.log('----_saveTile----');
+        self.status.lengthSaved += 1;
+        self._baseLayer.fire('savetileend', self.status);
+        if (self.status.lengthSaved === self.status.lengthToBeSaved) {
+          self._baseLayer.fire('saveend', self.status);
+          self.setStorageSize();
+        }
+      } catch (err) {
+        // throw new Error(err);
+      }
     },
     _rmTiles() {
       const self = this;

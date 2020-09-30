@@ -19,6 +19,7 @@ module.exports = function(config) {
     // list of files / patterns to load in the browser
     files: [
       'node_modules/leaflet/dist/leaflet.js',
+      'node_modules/bottleneck/bottleneck.d.ts',
       'node_modules/sinon/pkg/sinon.js',
       'test/*.js'
     ],
@@ -42,13 +43,15 @@ module.exports = function(config) {
         globals: {
           //localforage: 'localforage',
           leaflet: 'L',
-          sinon: 'sinon'
+          sinon: 'sinon',
+          bottleneck: 'bottleneck'
         },
       },
      external: [
        'leaflet',
        //'localforage',
-       'sinon'
+       'sinon',
+       'bottleneck'
      ],
      plugins: [
        resolve(),

@@ -1,11 +1,10 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('leaflet'), require('idb'), require('crypto-js/md5')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'leaflet', 'idb', 'crypto-js/md5'], factory) :
-  (global = global || self, factory(global.LeafletOffline = {}, global.L, global.idb, global.md5));
-}(this, (function (exports, L, idb, md5) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('leaflet'), require('idb')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'leaflet', 'idb'], factory) :
+  (global = global || self, factory(global.LeafletOffline = {}, global.L, global.idb));
+}(this, (function (exports, L, idb) { 'use strict';
 
   L = L && Object.prototype.hasOwnProperty.call(L, 'default') ? L['default'] : L;
-  md5 = md5 && Object.prototype.hasOwnProperty.call(md5, 'default') ? md5['default'] : md5;
 
   /**
    * Api methods used in control and layer
@@ -19,6 +18,7 @@
 
   var tileStoreName = 'tileStore';
   var urlTemplateIndex = 'urlTemplate';
+
 
   var dbPromise = idb.openDB('leaflet.offline', 2, {
     upgrade: function upgrade(db, oldVersion) {
@@ -71,13 +71,6 @@
     );
   }
 
-  /**
-   * @example
-   * downloadTile(tileInfo.url).then(blob => saveTile(tileInfo, blob))
-   *
-   * @param {string} tileUrl
-   * @return {Promise<blob>}
-   */
   async function downloadTile(tileUrl) {
     return fetch(tileUrl)
       .then(function (response) {
@@ -87,6 +80,7 @@
         return response.blob();
       });
   }
+
 
   /**
    * TODO validate tileinfo props?
@@ -418,6 +412,7 @@
   /**
    * Shows control on map to save tiles
    * @class ControlSaveTiles
+   * @class limiter
    *
    *
    * @property {ControlStatus} status
@@ -439,6 +434,9 @@
    * rmText: '<i class="fa fa-trash" aria-hidden="true"  title="Remove tiles"></i>',
    * });
    */
+
+
+
   var ControlSaveTiles = L.Control.extend(
     /** @lends ControlSaveTiles */ {
       options: {
@@ -540,7 +538,7 @@
         return link;
       },
 
-  /**
+      /**
        * starts processing tiles
        * @private
        * @return {void}
@@ -571,7 +569,7 @@
         }
 
         var latlngBounds = this.options.bounds || this._map.getBounds();
-        var groupId = (new Date).toISOString();
+        var groupId = (new Date()).toISOString();
 
         for (var i = 0; i < zoomlevels.length; i += 1) {
           bounds = L.bounds(
@@ -583,18 +581,43 @@
         this._resetStatus(tiles);
         var successCallback = async function () {
           this$1._baseLayer.fire('savestart', this$1.status);
-          var loader = function () {
-            if (tiles.length === 0) {
+          /* const loader = (tile) => {
+            /* if (tiles.length === 0) {
               return Promise.resolve();
             }
-            var tile = tiles.shift();
-            return this$1._loadTile(tile, groupId).then(loader);
+            // const tile = tiles.shift();
+            console.log('was run');
+            return this._loadTile(tile, groupId).then(loader);
           };
-          var parallel = Math.min(tiles.length, this$1.options.parallel);
-          for (var i = 0; i < parallel; i += 1) {
+        */
+          var promises = [];
+
+          try {
+            for (var i = 0; i < tiles.length; i++) {
+              //console.log(i);
+              var tile = tiles[i];
+              promises.push(this$1._loadTile(tile, groupId));
+              if (i > 0 && i % 200 === 0) {
+                var result = await Promise.all(promises);
+                //console.log(result);
+                promises = [];
+                await new Promise(function (resolve) { return setTimeout(resolve, 20); });
+              }
+            }
+          } catch (e) {
+           // console.log(e);
+          }
+
+          /*
+          const parallel = Math.min(tiles.length, this.options.parallel);
+          for (let i = 0; i < parallel; i += 1) {
             loader();
           }
+
+   */
         };
+
+
         if (this.options.confirm) {
           this.options.confirm(this.status, successCallback);
         } else {
@@ -620,6 +643,7 @@
        * @private
        * @return {void}
        */
+
       _loadTile: async function _loadTile(jtile, groupId) {
         if ( groupId === void 0 ) groupId = '';
 
@@ -629,14 +653,26 @@
         var date = (today.getFullYear()) + "-" + (today.getMonth() + 1) + "-" + (today.getDate());
         var time = (today.getHours()) + ":" + (today.getMinutes()) + ":" + (today.getSeconds());
         var timestamp = date + " " + time;
-        downloadTile(tile.url).then(function (blob) {
+        try {
+          var blob = await downloadTile(tile.url);
           self.status.lengthLoaded += 1;
-          self._saveTile(tile, blob, timestamp, groupId);
+          await self._saveTile(tile, blob, timestamp, groupId);
           self._baseLayer.fire('loadtileend', self.status);
           if (self.status.lengthLoaded === self.status.lengthToBeSaved) {
             self._baseLayer.fire('loadend', self.status);
           }
-        });
+        } catch (e) {
+
+          downloadTile(tile.url).then(function (blob) {
+            self.status.lengthLoaded += 1;
+            self._saveTile(tile, blob, timestamp, groupId);
+            self._baseLayer.fire('loadtileend', self.status);
+            if (self.status.lengthLoaded === self.status.lengthToBeSaved) {
+              self._baseLayer.fire('loadend', self.status);
+            }
+          });
+
+        }
       },
 
       /**
@@ -651,20 +687,20 @@
        * @param  {blob} blob    [description]
        * @return {void}         [description]
        */
-      _saveTile: function _saveTile(tileInfo, blob, timestamp, groupId) { // original is synchronous
+      _saveTile: async function _saveTile(tileInfo, blob, timestamp, groupId) { // original is synchronous
         var self = this;
-        saveTile(tileInfo, blob, timestamp, groupId)
-          .then(function () {
-            self.status.lengthSaved += 1;
-            self._baseLayer.fire('savetileend', self.status);
-            if (self.status.lengthSaved === self.status.lengthToBeSaved) {
-              self._baseLayer.fire('saveend', self.status);
-              self.setStorageSize();
-            }
-          })
-          .catch(function (err) {
-            throw new Error(err);
-          });
+        try {
+          await saveTile(tileInfo, blob, timestamp, groupId);
+          //console.log('----_saveTile----');
+          self.status.lengthSaved += 1;
+          self._baseLayer.fire('savetileend', self.status);
+          if (self.status.lengthSaved === self.status.lengthToBeSaved) {
+            self._baseLayer.fire('saveend', self.status);
+            self.setStorageSize();
+          }
+        } catch (err) {
+          // throw new Error(err);
+        }
       },
       _rmTiles: function _rmTiles() {
         var self = this;

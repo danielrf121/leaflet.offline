@@ -14,6 +14,7 @@ import { openDB, deleteDB } from 'idb';
 const tileStoreName = 'tileStore';
 const urlTemplateIndex = 'urlTemplate';
 
+
 const dbPromise = openDB('leaflet.offline', 2, {
   upgrade(db, oldVersion) {
     deleteDB('leaflet_offline');
@@ -65,6 +66,16 @@ export async function getStorageInfo(urlTemplate) {
   );
 }
 
+// Rough implementation. Untested.
+function timeout(ms, promise) {
+  return new Promise(((resolve, reject) => {
+    setTimeout(() => {
+      reject(new Error('timeout'));
+    }, ms);
+    promise.then(resolve, reject);
+  }));
+}
+
 /**
  * @example
  * downloadTile(tileInfo.url).then(blob => saveTile(tileInfo, blob))
@@ -72,6 +83,33 @@ export async function getStorageInfo(urlTemplate) {
  * @param {string} tileUrl
  * @return {Promise<blob>}
  */
+/*
+  const controller = new AbortController();
+  const { signal } = controller;
+  setTimeout(() => {
+    console.log('abort');
+    controller.abort();
+  }, 2000);
+  const response = await fetch(tileUrl, { signal });
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.statusText}`);
+  }
+  return response.blob();
+ */
+export async function downloadTileTimeout(tileUrl) {
+  const controller = new AbortController();
+  const { sginal } = controller;
+
+  return timeout(300, fetch(tileUrl, { signal })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.statusText}`);
+      }
+      return response.blob();
+    })).catch((e)=> {
+  });
+}
+
 export async function downloadTile(tileUrl) {
   return fetch(tileUrl)
     .then((response) => {
@@ -81,6 +119,7 @@ export async function downloadTile(tileUrl) {
       return response.blob();
     });
 }
+
 
 /**
  * TODO validate tileinfo props?

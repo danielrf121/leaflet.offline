@@ -1,5 +1,5 @@
 /* global L,LeafletOffline, $  */
-const urlTemplate = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const urlTemplate = 'https://{s}.statkart.no/gatekeeper/gk/gk.open_gmaps?layers=topo4&zoom={z}&x={x}&y={y}';
 
 function showTileList() {
   LeafletOffline.getStorageInfo(urlTemplate).then((r) => {
@@ -21,18 +21,21 @@ $('#storageModal').on('show.bs.modal', () => {
   showTileList();
 });
 
+
+
+
 const map = L.map('map');
 // offline baselayer, will use offline source if available
 const baseLayer = L.tileLayer
   .offline(urlTemplate, {
     attribution: 'Map data {attribution.OpenStreetMap}',
-    subdomains: 'abc',
-    minZoom: 13,
+    subdomains: ['opencache', 'opencache2', 'opencache3'],
   })
   .addTo(map);
 // add buttons to save tiles in area viewed
 const control = L.control.savetiles(baseLayer, {
-  zoomlevels: [13, 16], // optional zoomlevels to save, default current zoomlevel
+  zoomlevels: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+  parallel: 1,
   confirm(layer, succescallback) {
     // eslint-disable-next-line no-alert
     if (window.confirm(`Save ${layer._tilesforSave.length}`)) {
@@ -53,8 +56,8 @@ control.addTo(map);
 
 map.setView(
   {
-    lat: 51.985,
-    lng: 5,
+    lat: 58.970311,
+    lng: 5.730891,
   },
   16,
 );
@@ -84,6 +87,10 @@ addStorageLayer();
 document.getElementById('remove_tiles').addEventListener('click', () => {
   control._rmTiles();
 });
+document.getElementById('save_tiles').addEventListener('click', () => {
+  control._saveTiles();
+})
+
 baseLayer.on('storagesize', (e) => {
   document.getElementById('storage').innerHTML = e.storagesize;
   if (storageLayer) {
@@ -104,3 +111,23 @@ baseLayer.on('savetileend', () => {
   progress += 1;
   document.getElementById('progress').innerHTML = progress;
 });
+
+var i = 0;
+function move() {
+  if (i == 0) {
+    i = 1;
+    var elem = document.getElementById("myBar");
+    var width = 10;
+    var id = setInterval(frame, 10);
+    function frame() {
+      if (width >= 100) {
+        clearInterval(id);
+        i = 0;
+      } else {
+        width++;
+        elem.style.width = width + "%";
+        elem.innerHTML = width + "%";
+      }
+    }
+  }
+}

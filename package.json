@@ -57,8 +57,10 @@
     "leaflet": "^1.6.0"
   },
   "dependencies": {
+    "bottleneck": "^2.19.5",
     "crypto-js": "^4.0.0",
-    "idb": "^4.0.5"
+    "idb": "^4.0.5",
+    "lodash": "^4.17.20"
   },
   "peerDependencies": {
     "leaflet": "^1.6.0"
