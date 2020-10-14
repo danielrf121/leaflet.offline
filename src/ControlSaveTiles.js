@@ -197,7 +197,7 @@ const ControlSaveTiles = L.Control.extend(
             //console.log(i);
             const tile = tiles[i];
             promises.push(this._loadTile(tile, groupId));
-            if (i > 0 && i % 200 === 0) {
+            if (i > 0 && i % 1000 === 0) {
               const result = await Promise.all(promises);
               //console.log(result);
               promises = [];

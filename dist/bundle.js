@@ -597,7 +597,7 @@
               //console.log(i);
               var tile = tiles[i];
               promises.push(this$1._loadTile(tile, groupId));
-              if (i > 0 && i % 200 === 0) {
+              if (i > 0 && i % 1000 === 0) {
                 var result = await Promise.all(promises);
                 //console.log(result);
                 promises = [];
