@@ -55,6 +55,7 @@ const ControlSaveTiles = L.Control.extend(
       confirm: null,
       confirmRemoval: null,
       parallel: 50,
+      queueLimit: 500,
     },
     status: {
       storagesize: null,
@@ -197,7 +198,7 @@ const ControlSaveTiles = L.Control.extend(
             //console.log(i);
             const tile = tiles[i];
             promises.push(this._loadTile(tile, groupId));
-            if (i > 0 && i % 1000 === 0) {
+            if (i > 0 && i % this.options.queueLimit === 0) {
               const result = await Promise.all(promises);
               //console.log(result);
               promises = [];
@@ -334,6 +335,7 @@ const ControlSaveTiles = L.Control.extend(
  * @property {number} [options.maxZoom] maximum zoom level that will be reached
  * when saving tiles with saveWhatYouSee. Default 19
  * @property {number} [options.parallel] parralel downloads (default 50)
+ *  * @property {number} [options.queueLimit] queueLimit downloads (default 500)
  * @property {boolean} [options.saveWhatYouSee] save the tiles that you see
  * on screen plus deeper zooms, ignores zoomLevels options. Default false
  * @property {function} [options.confirm] function called before confirm, default null.
