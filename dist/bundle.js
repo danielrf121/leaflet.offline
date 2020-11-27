@@ -241,7 +241,9 @@
    */
   async function getTile(key) {
     return (await dbPromise).get(tileStoreName, key)
-      .then(function (result) { return result.blob; });
+      .then(function (result) {
+        return result && result.blob;
+      });
   }
 
   /**
@@ -288,7 +290,8 @@
             tile.src = dataurl;
             done(error, tile);
           })
-          .catch(function () {
+          .catch(function (err) {
+            // console.log('err LeafletOffline URL....', url);
             tile.src = url;
             L.DomEvent.on(tile, 'load', L.Util.bind(this$1._tileOnLoad, this$1, done, tile));
             L.DomEvent.on(tile, 'error', L.Util.bind(this$1._tileOnError, this$1, done, tile));
@@ -443,7 +446,7 @@
         position: 'topleft',
         saveText: '+',
         rmText: '-',
-        maxZoom: 19,
+        maxZoom: 13,
         saveWhatYouSee: false,
         bounds: null,
         confirm: null,
@@ -550,21 +553,24 @@
         var bounds;
         var tiles = [];
         // minimum zoom to prevent the user from saving the whole world
-        var minZoom = 5;
+        var minZoom = 4;
         // current zoom or zoom options
         var zoomlevels = [];
 
         if (this.options.saveWhatYouSee) {
+          console.log('saveWhatYouSee');
           var currentZoom = this._map.getZoom();
           if (currentZoom < minZoom) {
             throw new Error("It's not possible to save with zoom below level 5.");
           }
-          var ref = this.options;
-          var maxZoom = ref.maxZoom;
 
-          for (var zoom = currentZoom; zoom <= maxZoom; zoom += 1) {
+          var maxZoom = this.options.maxZoom;
+          console.log('maxZoom', maxZoom);
+
+          for (var zoom = minZoom; zoom <= maxZoom; zoom ++) {
             zoomlevels.push(zoom);
           }
+          console.log('zoomlevels', zoomlevels);
         } else {
           zoomlevels = this.options.zoomlevels || [this._map.getZoom()];
         }
