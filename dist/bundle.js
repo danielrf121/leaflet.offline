@@ -582,42 +582,24 @@
         this._resetStatus(tiles);
         var successCallback = async function () {
           this$1._baseLayer.fire('savestart', this$1.status);
-          /* const loader = (tile) => {
-            /* if (tiles.length === 0) {
-              return Promise.resolve();
-            }
-            // const tile = tiles.shift();
-            console.log('was run');
-            return this._loadTile(tile, groupId).then(loader);
-          };
-        */
+
           var promises = [];
 
           try {
             for (var i = 0; i < tiles.length; i++) {
-              //console.log(i);
+              // console.log(i);
               var tile = tiles[i];
               promises.push(this$1._loadTile(tile, groupId));
-              if (i > 0 && i % this$1.options.queueLimit === 0) {
+              if (i > 0 && i % this$1.options.queueLimit === 0) {                
                 var result = await Promise.all(promises);
-                //console.log(result);
+                // console.log('result', result);
                 promises = [];
-                await new Promise(function (resolve) { return setTimeout(resolve, 20); });
               }
             }
           } catch (e) {
            // console.log(e);
           }
-
-          /*
-          const parallel = Math.min(tiles.length, this.options.parallel);
-          for (let i = 0; i < parallel; i += 1) {
-            loader();
-          }
-
-   */
         };
-
 
         if (this.options.confirm) {
           this.options.confirm(this.status, successCallback);
@@ -663,7 +645,6 @@
             self._baseLayer.fire('loadend', self.status);
           }
         } catch (e) {
-
           downloadTile(tile.url).then(function (blob) {
             self.status.lengthLoaded += 1;
             self._saveTile(tile, blob, timestamp, groupId);
@@ -672,7 +653,6 @@
               self._baseLayer.fire('loadend', self.status);
             }
           });
-
         }
       },
 
@@ -692,7 +672,6 @@
         var self = this;
         try {
           await saveTile(tileInfo, blob, timestamp, groupId);
-          //console.log('----_saveTile----');
           self.status.lengthSaved += 1;
           self._baseLayer.fire('savetileend', self.status);
           if (self.status.lengthSaved === self.status.lengthToBeSaved) {
