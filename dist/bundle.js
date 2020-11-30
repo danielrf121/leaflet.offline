@@ -453,6 +453,7 @@
         confirmRemoval: null,
         parallel: 50,
         queueLimit: 500,
+        cancel: false,
       },
       status: {
         storagesize: null,
@@ -585,7 +586,9 @@
           );
           tiles = tiles.concat(this._baseLayer.getTileUrls(bounds, zoomlevels[i]));
         }
+        
         this._resetStatus(tiles);
+
         var successCallback = async function () {
           this$1._baseLayer.fire('savestart', this$1.status);
 
@@ -594,6 +597,12 @@
           try {
             for (var i = 0; i < tiles.length; i++) {
               // console.log(i);
+
+              if (this$1.options.cancel) {
+                console.log('Parando execucao dentro do plugin');
+                break; 
+              }
+
               var tile = tiles[i];
               promises.push(this$1._loadTile(tile, groupId));
               if (i > 0 && i % this$1.options.queueLimit === 0) {                
